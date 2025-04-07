@@ -2,6 +2,7 @@ import numpy as np
 import xlsxwriter
 import datetime
 import shutil
+import csv
 from mealpy import FloatVar, ArchOA, ASO, CDO, EFO, EO, CoatiOA
 #https://github.com/HaaLeo/swarmlib
 #import swarmlib
@@ -10,9 +11,9 @@ import math
 import optimization_functions as of
 
 dimension_count = 2
-bench_count = 4
-max_epochs = 50
-pop_size = 15
+bench_count = 10
+max_epochs = 200
+pop_size = 20
 
 # [func, name, min, max]
 funcs = [
@@ -40,7 +41,7 @@ model = ArchOA.OriginalArchOA(epoch=max_epochs, pop_size=pop_size ,c1 = 2, c2 = 
 #model = EO.AdaptiveEO(epoch=max_epochs, pop_size=pop_size)
 #model = EFO.DevEFO(epoch=max_epochs, pop_size=pop_size, r_rate = 0.3, ps_rate = 0.85, p_field = 0.1, n_field = 0.45)
 #model = CoatiOA.OriginalCoatiOA(epoch=max_epochs, pop_size=pop_size)
-class FuncResult():
+class FuncResult:
   def __init__(self, name, data):
     self.name = name
     self.data = data
@@ -57,6 +58,7 @@ def benchmark_all(funcs):
         "minmax": "min",
         "obj_func": fitness_function,
         "log_to": None,
+        "save_population": True,
     }
     result = benchmark_single(fitness_function,func_name, problem_dict)
     results.append(result)
@@ -84,16 +86,26 @@ def save_charts(model, algorithm_name, func_name, iteration):
   model.history.save_local_best_fitness_chart(filename=f"exported/{algorithm_name}/{func_name}/{iteration}/lbfc")
   model.history.save_exploration_exploitation_chart(filename=f"exported/{algorithm_name}/{func_name}/{iteration}/eec")
 
+def save_history(model, algorithm_name, func_name, iteration):
+    current_best = model.history.list_current_best
+    flattened = [ind.solution + [ind.target.fitness] for ind in current_best]
+    with open(f"exported/{algorithm_name}/{func_name}/{iteration}/current_best.csv","w",newline="") as f:
+        writer = csv.writer(f)
+        writer.writerows(flattened)
+        #TODO obecnie nie zapisuje fitness
+
 def benchmark_single(func,func_name, problem_dict):
   results = []
   executions_times = []
   print(f"Function: {func_name}")
   for i in range(bench_count):
-    tstart = datetime.datetime.now()
     result = model.solve(problem_dict)
+    tstart = datetime.datetime.now()
     tend = datetime.datetime.now()
     executions_times.append((tend-tstart).total_seconds())
     save_charts(model, algorithm_name, func_name, i)
+    save_history(model, algorithm_name, func_name, i)
+
 
     results.append(result)
 
@@ -114,6 +126,7 @@ def benchmark_single(func,func_name, problem_dict):
   return FuncResult(func_name, [avg, std, avg_time, std_time])
 
 benchmark_all(funcs)
-shutil.make_archive(f"exported/{algorithm_name}", 'zip', f"exported/{algorithm_name}")
+#shutil.make_archive(f"exported/{algorithm_name}", 'zip', f"exported/{algorithm_name}")
+
 #print(f"Solution: {model.g_best.solution}, Fitness: {model.g_best.target.fitness}")
 #print(f"Solution: {g_best.solution}, Fitness: {g_best.target.fitness}")
