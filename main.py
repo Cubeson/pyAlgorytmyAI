@@ -63,7 +63,7 @@ def benchmark_all(funcs):
   create_excel_file(f"{algorithm_name}_wyniki", results)
 
 def create_excel_file(algorithm_name, results):
-  wb = xlsxwriter.Workbook(f"{algorithm_name}.xlsx")
+  wb = xlsxwriter.Workbook(f"exported/{algorithm_name}.xlsx")
   for res in results:
     add_sheet_to_excel_workbook(wb, res.name, res.data)
   wb.close()
@@ -80,9 +80,9 @@ def add_sheet_to_excel_workbook(existing_workbook, sheetName, data):
       row += 1
 
 def save_charts(model, algorithm_name, func_name, iteration):
-  model.history.save_local_objectives_chart(filename=f"{algorithm_name}/{func_name}/{iteration}/loc")
-  model.history.save_local_best_fitness_chart(filename=f"{algorithm_name}/{func_name}/{iteration}/lbfc")
-  model.history.save_exploration_exploitation_chart(filename=f"{algorithm_name}/{func_name}/{iteration}/eec")
+  model.history.save_local_objectives_chart(filename=f"exported/{algorithm_name}/{func_name}/{iteration}/loc")
+  model.history.save_local_best_fitness_chart(filename=f"exported/{algorithm_name}/{func_name}/{iteration}/lbfc")
+  model.history.save_exploration_exploitation_chart(filename=f"exported/{algorithm_name}/{func_name}/{iteration}/eec")
 
 def benchmark_single(func,func_name, problem_dict):
   results = []
@@ -114,6 +114,6 @@ def benchmark_single(func,func_name, problem_dict):
   return FuncResult(func_name, [avg, std, avg_time, std_time])
 
 benchmark_all(funcs)
-shutil.make_archive(algorithm_name, 'zip', algorithm_name)
+shutil.make_archive(f"exported/{algorithm_name}", 'zip', f"exported/{algorithm_name}")
 #print(f"Solution: {model.g_best.solution}, Fitness: {model.g_best.target.fitness}")
 #print(f"Solution: {g_best.solution}, Fitness: {g_best.target.fitness}")
