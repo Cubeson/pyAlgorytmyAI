@@ -60,7 +60,7 @@ def benchmark_all(funcs):
         "log_to": None,
         "save_population": True,
     }
-    result = benchmark_single(fitness_function,func_name, problem_dict)
+    result = benchmark_single(func_name, problem_dict)
     results.append(result)
   create_excel_file(f"{algorithm_name}_wyniki", results)
 
@@ -88,13 +88,12 @@ def save_charts(model, algorithm_name, func_name, iteration):
 
 def save_history(model, algorithm_name, func_name, iteration):
     current_best = model.history.list_current_best
-    flattened = [ind.solution + [ind.target.fitness] for ind in current_best]
+    flattened = [ind.solution.tolist() + [ind.target.fitness] for ind in current_best]
     with open(f"exported/{algorithm_name}/{func_name}/{iteration}/current_best.csv","w",newline="") as f:
         writer = csv.writer(f)
         writer.writerows(flattened)
-        #TODO obecnie nie zapisuje fitness
 
-def benchmark_single(func,func_name, problem_dict):
+def benchmark_single(func_name, problem_dict):
   results = []
   executions_times = []
   print(f"Function: {func_name}")
@@ -130,3 +129,4 @@ benchmark_all(funcs)
 
 #print(f"Solution: {model.g_best.solution}, Fitness: {model.g_best.target.fitness}")
 #print(f"Solution: {g_best.solution}, Fitness: {g_best.target.fitness}")
+
