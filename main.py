@@ -2,7 +2,6 @@ import numpy as np
 import xlsxwriter
 import time
 import shutil
-import csv
 from mealpy import FloatVar, ArchOA, ASO, CDO, EFO, EO, CoatiOA
 #https://github.com/HaaLeo/swarmlib
 #import swarmlib
@@ -10,7 +9,7 @@ import math
 import optimization_functions as of
 
 dimension_count = 2
-bench_count = 5
+bench_count = 20
 max_epochs = 50
 pop_size = 20
 
@@ -77,10 +76,10 @@ def add_sheet_to_excel_workbook(existing_workbook, sheet_name, sheet_rows:list[S
   col = 0
   # A1  B1 C1 D1  E1   F1 G1  H1      I1       J1
   # gen x1 x2 fit time |  avg std_dev avg_time std_dev_time
-  sheet.write(row, col + 0, "Generation")
+  sheet.write(row, col + 0, "Benchmark")
   sheet.write(row, col + 1, "x1")
   sheet.write(row, col + 2, "x2")
-  sheet.write(row, col + 3, "Fitness")
+  sheet.write(row, col + 3, "Best Fitness")
   sheet.write(row, col + 4, "Time")
   sheet.write(row, col + 5, "")
   sheet.write(row, col + 6, "Average Fitness")
