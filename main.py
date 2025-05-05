@@ -2,6 +2,8 @@ import numpy as np
 import xlsxwriter
 import time
 import shutil
+
+from matplotlib import pyplot as plt, animation
 from mealpy import FloatVar, ArchOA, ASO, CDO, EFO, EO, CoatiOA
 #https://github.com/HaaLeo/swarmlib
 #import swarmlib
@@ -10,7 +12,7 @@ import optimization_functions as of
 
 dimension_count = 2
 bench_count = 20
-max_epochs = 50
+max_epochs = 100
 pop_size = 20
 
 # [func, name, min, max]
@@ -32,24 +34,70 @@ funcs = [
         [of.Eggholder(dimension_count)                             , 'Eggholder',-512,512      ],
 ]
 
-algorithm_name = "ArchOA"
-model = ArchOA.OriginalArchOA(epoch=max_epochs, pop_size=pop_size ,c1 = 2, c2 = 5, c3 = 2, c4 = 0.5, acc_max = 0.9, acc_min = 0.1)
+algorithm_name = "CoatiOA"
+#model = ArchOA.OriginalArchOA(epoch=max_epochs, pop_size=pop_size ,c1 = 2, c2 = 5, c3 = 2, c4 = 0.5, acc_max = 0.9, acc_min = 0.1)
 #model = ASO.OriginalASO(epoch=max_epochs, pop_size=pop_size, alpha = 50, beta = 0.2)
 #model = CDO.OriginalCDO(epoch=max_epochs, pop_size=pop_size)
 #model = EO.AdaptiveEO(epoch=max_epochs, pop_size=pop_size)
 #model = EFO.DevEFO(epoch=max_epochs, pop_size=pop_size, r_rate = 0.3, ps_rate = 0.85, p_field = 0.1, n_field = 0.45)
-#model = CoatiOA.OriginalCoatiOA(epoch=max_epochs, pop_size=pop_size)
+model = CoatiOA.OriginalCoatiOA(epoch=max_epochs, pop_size=pop_size)
 class FuncResult:
   def __init__(self, name, data):
     self.name = name
     self.data = data
 
 class SheetRow:
-    def __init__(self, generation:int, positions:list[float], fitness:float, time:float):
-        self.generation = generation
+    def __init__(self, benchmark:int, positions:list[float], fitness:float, time:float):
+        self.benchmark = benchmark
         self.positions = positions
         self.fitness = fitness
         self.time = time
+
+ani_writer = animation.PillowWriter(fps=10,
+                                 metadata=dict(artist='Jakub_Lewandowski'),
+                                 bitrate=1800)
+
+def save_animation(generations, func, func_name, gen, lbound, ubound):
+    x = np.linspace(lbound, ubound, 200)
+    y = np.linspace(lbound, ubound, 200)
+    X, Y = np.meshgrid(x, y)
+    Z = np.zeros_like(X)
+    for i in range(X.shape[0]):
+        for j in range(X.shape[1]):
+            vec = np.array([X[i, j], Y[i, j]])
+            Z[i, j] = func(vec)
+    fig, ax = plt.subplots()
+    background = ax.imshow(
+        Z, extent=[x.min(), x.max(), y.min(), y.max()],
+        origin='lower', cmap='viridis', alpha=0.6
+    )
+    scat = ax.scatter([], [])
+
+    def init():
+        ax.set_xlim(lbound, ubound)  # Adjust to your data range
+        ax.set_ylim(lbound, ubound)
+        return scat,
+
+    def update(frame):
+        gen = generations[frame]
+        xs = [agent.solution[0] for agent in gen]
+        ys = [agent.solution[1] for agent in gen]
+        # fitnesses = [agent.target.fitness for agent in gen]
+        # print(min(fitnesses))
+        # inverted = [-f for f in fitnesses]
+        # normed = [(val - (-max_fit)) / ((-min_fit) - (-max_fit)) for val in inverted]
+
+        scat.set_offsets(list(zip(xs, ys)))
+        # scat.set_array(normed)
+        ax.set_title(f"Generation {frame}")
+        return scat,
+
+    ani = animation.FuncAnimation(
+        fig, update, frames=len(generations),
+        init_func=init, blit=False, interval=500
+    )
+    ani.save(f"exported/{algorithm_name}/{func_name}/{gen}/animation.gif", writer=ani_writer)
+    plt.close()
 
 def benchmark_all(funcs):
   wb = xlsxwriter.Workbook(f"exported/{algorithm_name}_wyniki.xlsx")
@@ -65,7 +113,7 @@ def benchmark_all(funcs):
         "log_to": None,
         "save_population": True,
     }
-    result = benchmark_single(func_name, problem_dict)
+    result = benchmark_single(func_name, problem_dict, min_val, max_val)
     add_sheet_to_excel_workbook(wb, func_name, result)
   wb.close()
 
@@ -100,7 +148,7 @@ def add_sheet_to_excel_workbook(existing_workbook, sheet_name, sheet_rows:list[S
 
   for sheet_row in sheet_rows:
         #A gen
-        sheet.write(row, col+0, sheet_row.generation)
+        sheet.write(row, col+0, sheet_row.benchmark)
         #B x1
         sheet.write(row,col+1, sheet_row.positions[0])
         #C x2
@@ -114,26 +162,28 @@ def add_sheet_to_excel_workbook(existing_workbook, sheet_name, sheet_rows:list[S
         row += 1
 
 def save_charts(model, algorithm_name, func_name, iteration):
-  model.history.save_local_objectives_chart(filename=f"exported/{algorithm_name}/{func_name}/{iteration}/loc")
-  model.history.save_local_best_fitness_chart(filename=f"exported/{algorithm_name}/{func_name}/{iteration}/lbfc")
-  model.history.save_exploration_exploitation_chart(filename=f"exported/{algorithm_name}/{func_name}/{iteration}/eec")
+  model.history.save_local_objectives_chart(filename=f"exported/{algorithm_name}/{func_name}/{iteration}/local_objectives_chart")
+  model.history.save_local_best_fitness_chart(filename=f"exported/{algorithm_name}/{func_name}/{iteration}/local_best_fitness_chart")
+  model.history.save_exploration_exploitation_chart(filename=f"exported/{algorithm_name}/{func_name}/{iteration}/exploration_exploitation_chart")
 
-def benchmark_single(func_name, problem_dict):
+def benchmark_single(func_name, problem_dict, min_val, max_val):
   sheet_rows = []
   print(f"Function: {func_name}")
-  gen = 1
+  #gen = 1
   for i in range(bench_count):
+    print(f"Benchmark: {i+1}")
     tstart = time.time()
     result = model.solve(problem_dict)
     tend = time.time()
-    save_charts(model, algorithm_name, func_name, i)
 
     time_elapsed = tend-tstart
     positions = result.solution.tolist()
     fitness = result.target.fitness
-    sheet_row = SheetRow(gen,positions,fitness,time_elapsed)
+    sheet_row = SheetRow(i+1,positions,fitness,time_elapsed)
     sheet_rows.append(sheet_row)
-    gen = gen + 1
+    save_charts(model, algorithm_name, func_name, i+1)
+    save_animation(model.history.list_population,problem_dict["obj_func"],func_name,i+1,min_val,max_val)
+    #gen = gen + 1
   return sheet_rows
 
 benchmark_all(funcs)
